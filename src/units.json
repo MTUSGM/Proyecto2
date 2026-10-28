@@ -1,0 +1,116 @@
+{
+  "imperio": {
+    "ranged": {
+      "name": "Fusilero imperial",
+      "attack": 10,
+      "defense": 14,
+      "armor": 10,
+      "minerals": 12,
+      "energy": 2,
+      "supplies": 8,
+      "space": 1,
+      "upkeep": 2,
+      "description": "Infantería disciplinada: destaca defendiendo posiciones."
+    },
+    "melee": {
+      "name": "Guardia de asalto",
+      "attack": 15,
+      "defense": 9,
+      "armor": 15,
+      "minerals": 14,
+      "energy": 0,
+      "supplies": 10,
+      "space": 1,
+      "upkeep": 2,
+      "description": "Especialista ofensivo con protección ligera."
+    },
+    "tank": {
+      "name": "Tanque Bastión",
+      "attack": 65,
+      "defense": 85,
+      "armor": 55,
+      "minerals": 150,
+      "energy": 65,
+      "supplies": 40,
+      "space": 5,
+      "upkeep": 10,
+      "description": "Blindaje pesado y gran defensa; exige mucho transporte."
+    }
+  },
+  "orkos": {
+    "ranged": {
+      "name": "Tirador orko",
+      "attack": 11,
+      "defense": 9,
+      "armor": 5,
+      "minerals": 10,
+      "energy": 0,
+      "supplies": 8,
+      "space": 1,
+      "upkeep": 2,
+      "description": "Fuego abundante y económico, con poca protección."
+    },
+    "melee": {
+      "name": "Guerrero de hacha",
+      "attack": 18,
+      "defense": 8,
+      "armor": 10,
+      "minerals": 12,
+      "energy": 0,
+      "supplies": 9,
+      "space": 1,
+      "upkeep": 2,
+      "description": "Asalto brutal y barato; vulnerable al defender."
+    },
+    "tank": {
+      "name": "Carro de guerra",
+      "attack": 80,
+      "defense": 55,
+      "armor": 40,
+      "minerals": 130,
+      "energy": 55,
+      "supplies": 45,
+      "space": 5,
+      "upkeep": 12,
+      "description": "Gran potencia ofensiva; menos blindado y consume más suministros."
+    }
+  },
+  "herejes": {
+    "ranged": {
+      "name": "Acólito de fuego",
+      "attack": 13,
+      "defense": 11,
+      "armor": 8,
+      "minerals": 14,
+      "energy": 4,
+      "supplies": 8,
+      "space": 1,
+      "upkeep": 2,
+      "description": "Potencia de fuego elevada a cambio de energía."
+    },
+    "melee": {
+      "name": "Berserker del vacío",
+      "attack": 20,
+      "defense": 7,
+      "armor": 5,
+      "minerals": 17,
+      "energy": 3,
+      "supplies": 10,
+      "space": 1,
+      "upkeep": 3,
+      "description": "Ataque extremo; defensa y protección reducidas."
+    },
+    "tank": {
+      "name": "Destructor profano",
+      "attack": 90,
+      "defense": 60,
+      "armor": 45,
+      "minerals": 170,
+      "energy": 80,
+      "supplies": 45,
+      "space": 5,
+      "upkeep": 12,
+      "description": "El mayor ataque base; costoso de fabricar y desplegar."
+    }
+  }
+}

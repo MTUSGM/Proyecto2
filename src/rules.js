@@ -15,3 +15,14 @@ export const fmt = n => new Intl.NumberFormat('es-EC',{maximumFractionDigits:0})
 export function attackPower(troops, tech, faction){return troops*10*(1+(tech-1)*.15)*(faction==='orkos'?1.1:1)+Math.ceil(troops/30)*20;}
 export function recruitCost(n,faction){const factor=faction==='orkos'?.8:1; return {minerals:n*10*factor,supplies:n*8*factor};}
 export function escapeHTML(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+export const unitTypes=['ranged','melee','tank'];
+export const unitLabels={ranged:'A distancia',melee:'Cuerpo a cuerpo',tank:'Tanques'};
+export const emptyUnits=()=>({ranged:0,melee:0,tank:0});
+export const unitCount=units=>unitTypes.reduce((n,k)=>n+Number(units?.[k]||0),0);
+export const cargoUsed=(units,catalog)=>unitTypes.reduce((n,k)=>n+(units[k]||0)*catalog[k].space,0);
+export function typedPower(units,catalog,tech,faction,defending=false,bastion=0){
+ const base=unitTypes.reduce((n,k)=>n+(units[k]||0)*catalog[k][defending?'defense':'attack'],0)*(1+(tech-1)*.15);
+ return defending?(base+bastion*100)*(faction==='imperio'?1.15:1):base*(faction==='orkos'?1.1:1)+Math.ceil(cargoUsed(units,catalog)/30)*20;
+}
+export function typedCost(n,type,catalog,faction){const u=catalog[type],factor=faction==='orkos'?.8:1;return {minerals:n*u.minerals*factor,energy:n*u.energy*factor,supplies:n*u.supplies*factor};}

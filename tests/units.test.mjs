@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {unitCount,cargoUsed,typedPower,typedCost} from '../src/rules.js';
+const catalogue=JSON.parse(fs.readFileSync(new URL('../src/units.json',import.meta.url)));
+test('mixed armies reserve five transport slots per tank',()=>{assert.equal(cargoUsed({ranged:10,melee:5,tank:2},catalogue.imperio),25);assert.equal(unitCount({ranged:10,melee:5,tank:2}),17);});
+test('all factions have three differentiated roles and tank armor',()=>{for(const c of Object.values(catalogue)){assert.deepEqual(Object.keys(c),['ranged','melee','tank']);assert.ok(c.melee.attack>c.ranged.attack);assert.ok(c.ranged.defense>c.melee.defense);assert.ok(c.tank.armor>c.ranged.armor);assert.equal(c.tank.space,5);}});
+test('Imperial defense bonus applies to garrison and bastion',()=>assert.equal(typedPower({ranged:10,melee:0,tank:0},catalogue.imperio,1,'imperio',true,1),276));
+test('Ork production discount applies to all three resources',()=>assert.deepEqual(typedCost(2,'tank',catalogue.orkos,'orkos'),{minerals:208,energy:88,supplies:72}));
+test('no troops means only bastion defense, not transport strength',()=>assert.equal(typedPower({ranged:0,melee:0,tank:0},catalogue.herejes,1,'herejes',true,1),100));
