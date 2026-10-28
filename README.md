@@ -73,3 +73,20 @@ El planificador muestra el poder atacante y la defensa que permanecerá en el pl
 Ataque: suma de ataques × tecnología × bonus de facción + 20 por transporte utilizado. Defensa: (suma de defensas terrestres × tecnología + 100 por nivel de bastión) × bonus imperial. La fracción de bajas atacantes es 12% al ganar, 35% al perder; la defensora es 30% si el atacante gana, 10% si pierde. Por tipo: ceil(cantidad × fracción × (1 − blindaje/100)), sin superar la cantidad disponible. Los costes de suministros dependen de la unidad; energía = 25 × ceil(plazas utilizadas/30).
 
 Pruebas v2: `npm test`, `npm run build` y `tests/units.sql` dentro de una transacción con ROLLBACK. Verifican reclutamiento, costes, conservación, capacidad, entradas inválidas, atomicidad, desembarque, PvE/PvP, defensa solo terrestre, bajas por blindaje, Elo y aislamiento RLS.
+
+
+## Estrategia orbital y nidos (v3)
+
+Aplicar `supabase/orbital_upgrade.sql` después de `units_upgrade.sql`. Las naves existentes se convierten en transportes armados, sin perder capacidad. `src/strategy.json` documenta los catálogos del servidor; el estado devuelve `ship_catalog`, `npc_catalog` y `all_units`.
+
+- Transporte armado: 30 plazas, 12 ataque orbital, 12 defensa orbital, 1 apoyo terrestre. Construcción: 300 minerales, 200 energía, 40 suministros. Salida: 25 energía y 5 suministros.
+- Fragata de combate: 10 plazas, 120 ataque orbital, 100 defensa orbital, 6 apoyo terrestre. Construcción: 600 minerales, 400 energía, 100 suministros. Salida: 70 energía y 15 suministros.
+- Baterías orbitales: +80 defensa por nivel, hasta 10. Se suman a las naves de reserva, excluyendo las asignadas a expedición.
+- La expedición fija tropas y naves en un solo `embark`. Las tropas terrestres defienden el suelo; las naves no asignadas defienden la órbita. Liberar la flota devuelve tropas a tierra y todas las naves a reserva.
+- Distancia contrarresta cuerpo a cuerpo; cuerpo a cuerpo con cargas antiblindaje contrarresta tanques; tanques contrarrestan distancia. Bono +50% contra la clase favorable y penalización −25% contra la desfavorable, ponderados por las plazas del ejército enemigo. Se aplica en ataque y defensa.
+- Primero se resuelve la órbita con azar ±15%. Si falla, no hay combate terrestre y no se daña la guarnición; el atacante pierde una fracción de tropas transportadas y se retira. Si pasa, se calculan bajas orbitales y luego combate terrestre con otro azar ±15%.
+- Apoyo naval terrestre: limitado al 25% del ataque de las tropas desembarcadas. No permite reemplazar el ejército con solo fragatas.
+- Las naves regresan siempre y no se destruyen en esta versión. Cada salida cobra reparación en energía según resistencia orbital y número de naves, además de combustible y suministros. Las tropas sí pueden morir en órbita y en tierra. El planificador muestra el coste antes de atacar.
+- Los NPC usan Termagantes, Hormagantes y Carnifex; Caronte (20/10/0, órbita 20), Vesper (15/45/2, órbita 160), Leviatán (30/15/10, órbita 360 y tecnología 2). Se regeneran por incursión y no se conquistan. Solo PvP modifica Elo.
+
+`tests/orbital.sql` es la prueba de integración de la versión actual. Ejecuta fixtures y rollback; las suites SQL anteriores son históricas y requieren su esquema correspondiente. `tests/strategy.test.mjs` verifica capacidad, ventajas de composición, NPC y apoyo limitado. `tests/ui.test.mjs` comprueba el renderizado y navegación del cliente con datos de prueba, sin modificar cuentas reales.

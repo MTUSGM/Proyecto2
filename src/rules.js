@@ -26,3 +26,22 @@ export function typedPower(units,catalog,tech,faction,defending=false,bastion=0)
  return defending?(base+bastion*100)*(faction==='imperio'?1.15:1):base*(faction==='orkos'?1.1:1)+Math.ceil(cargoUsed(units,catalog)/30)*20;
 }
 export function typedCost(n,type,catalog,faction){const u=catalog[type],factor=faction==='orkos'?.8:1;return {minerals:n*u.minerals*factor,energy:n*u.energy*factor,supplies:n*u.supplies*factor};}
+
+export const shipTypes=['transport','combat'];
+export const emptyFleet=()=>({transport:0,combat:0});
+export const fleetCapacity=f=>(f.transport||0)*30+(f.combat||0)*10;
+export const orbitalPower=f=>(f.transport||0)*12+(f.combat||0)*120;
+export function tacticalPower(units,catalog,tech,defending,opponent){
+ const total=(opponent.ranged||0)+(opponent.melee||0)+5*(opponent.tank||0);
+ const good={ranged:'melee',melee:'tank',tank:'ranged'},bad={ranged:'tank',melee:'ranged',tank:'melee'};
+ return unitTypes.reduce((n,k)=>{const g=good[k],b=bad[k],mult=total?1+.5*(opponent[g]||0)*(g==='tank'?5:1)/total-.25*(opponent[b]||0)*(b==='tank'?5:1)/total:1;return n+(units[k]||0)*catalog[k][defending?'defense':'attack']*mult;},0)*(1+(tech-1)*.15);
+}
+export function expeditionEstimate(units,fleet,catalog,faction,tech,enemy,enemyCatalog){
+ const orbital=orbitalPower(fleet),orbitalDefense=enemy.orbital_power,rate=Math.min(.2,.15*orbitalDefense/Math.max(1,orbital));
+ const landed=Object.fromEntries(unitTypes.map(k=>[k,Math.max(0,units[k]-Math.ceil(units[k]*rate*(1-catalog[k].armor/100)))]));
+ const base=tacticalPower(landed,catalog,tech,false,enemy.ground)*(faction==='orkos'?1.1:1);
+ const support=Math.min(base*.25,fleet.transport+fleet.combat*6);
+ const defense=(tacticalPower(enemy.ground,enemyCatalog,enemy.tech,true,landed)+enemy.defense*100)*(enemy.faction==='imperio'?1.15:1);
+ const repairs=Math.ceil(Math.min(2,orbitalDefense/Math.max(1,orbital))*(fleet.transport+fleet.combat)*10);
+ return {orbital,orbitalDefense,attack:base+support,defense,support,landed,energy:fleet.transport*25+fleet.combat*70+repairs,supplies:unitTypes.reduce((n,k)=>n+units[k]*catalog[k].upkeep,0)+fleet.transport*5+fleet.combat*15,repairs};
+}
