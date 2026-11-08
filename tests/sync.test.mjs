@@ -1,0 +1,40 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import {JSDOM} from 'jsdom';
+import * as rules from '../src/rules.js';
+const strategy=JSON.parse(fs.readFileSync(new URL('../src/strategy.json',import.meta.url)));
+const source=fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replaceAll('import.meta.env.VITE_SUPABASE_URL',"'https://example.supabase.co'").replaceAll('import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY',"'test-publishable'");
+const pause=()=>new Promise(r=>setTimeout(r,180));
+test('Realtime preserves focused fields; reconnect/poll reconcile notices without duplicates',async()=>{
+ const dom=new JSDOM('<div id="app"></div><div id="toast"></div>',{url:'https://game.test'});
+ globalThis.document=dom.window.document;globalThis.HTMLElement=dom.window.HTMLElement;
+ const {default:morphdom}=await import('morphdom');
+ const e={ground:{ranged:40,melee:0,tank:0},embarked:{ranged:0,melee:0,tank:0},fleet:{transport:0,combat:0},transports:2,warships:0,ships:2,orbital:0,mine:1,reactor:1,farm:1,defense:1,tech:1,minerals:1200,energy:900,supplies:800,loot:0};
+ let state={commander:{id:'one',name:'Alpha',planet:'Alpha World',faction:'imperio',elo:1000,wins:0,battles:0},empire:e,ranking:[{id:'two',name:'Beta',planet:'Beta World',faction:'orkos',elo:1000,ground:e.ground,orbital_power:24,defense:1,tech:1}],reports:[],notifications:[],unit_catalog:strategy.units.imperio,all_units:strategy.units,ship_catalog:strategy.ships,npc_catalog:strategy.npcs};
+ let authHandler,statusCallback,queries=0,subscriptions=0,removals=0,attackCalls=0;const bindings=[],intervals=[];
+ const channel={on(type,filter,callback){bindings.push({filter,callback});return this;},subscribe(cb){statusCallback=cb;return this;}};
+ const db={channel(){subscriptions++;return channel;},removeChannel(){removals++;},auth:{onAuthStateChange(cb){authHandler=cb;},getSession:async()=>({data:{session:{user:{id:'one'}}}})},rpc:async(name,{action})=>{queries++;if(action==='attack')attackCalls++;return {data:structuredClone(state)};}};
+ const timers=new Set();
+ const context=vm.createContext({...rules,esc:rules.escapeHTML,morphdom,createClient:()=>db,document:dom.window.document,window:dom.window,location:dom.window.location,FormData:dom.window.FormData,crypto:globalThis.crypto,Intl,Date,console,setTimeout:(fn,ms)=>{const t=setTimeout(fn,ms);timers.add(t);return t;},clearTimeout,setInterval:(fn,ms)=>{intervals.push({fn,ms});return intervals.length;},clearInterval(){}});
+ try{
+ vm.runInContext(source,context);await pause();statusCallback('SUBSCRIBED');await pause();
+ assert.equal(subscriptions,1);assert.deepEqual(intervals.map(t=>t.ms),[120000]);
+ vm.runInContext("page='army';render();",context);
+ const input=dom.window.document.querySelector('[data-recruit=ranged]');input.value='37';input.focus();input.dispatchEvent(new dom.window.Event('input',{bubbles:true}));
+ const notice={id:'battle-1',attacker:'two',attacker_name:'Beta',planet:'Alpha World',created_at:new Date().toISOString(),attacker_won:false};
+ state.notifications=[notice];state.empire.ground.ranged=33;
+ const before=queries;for(const b of bindings)b.callback({new:notice});await pause();
+ assert.equal(queries-before,1,'coalesce multiple events from one transaction');
+ assert.equal(dom.window.document.querySelector('[data-recruit=ranged]'),input,'same live DOM node');assert.equal(input.value,'37');assert.equal(dom.window.document.activeElement,input);
+ assert.equal(dom.window.document.querySelectorAll('[data-notification]').length,1);
+ statusCallback('CHANNEL_ERROR');statusCallback('SUBSCRIBED');await pause();assert.equal(dom.window.document.querySelectorAll('[data-notification]').length,1);
+ dom.window.document.querySelector('[data-counter]').click();assert.equal(attackCalls,0,'counterattack only opens planner');assert.equal(vm.runInContext('target.target',context),'two');
+ state.notifications.push({...notice,id:'battle-2'});await intervals[0].fn();await pause();assert.equal(dom.window.document.querySelectorAll('[data-notification]').length,2,'poll finds missed event');
+ authHandler('SIGNED_OUT',null);await pause();const count=queries;await intervals[0].fn();await pause();assert.equal(queries,count);assert.equal(removals,1);
+ vm.runInContext("authMode='register';render();",context);
+ const doc=dom.window.document;doc.querySelector('[name=email]').value='test@example.com';doc.querySelector('[name=password]').value='abcdefgh';doc.querySelector('[name=passwordConfirm]').value='different';doc.querySelector('#auth-form').dispatchEvent(new dom.window.Event('submit',{bubbles:true,cancelable:true}));
+ assert.match(doc.querySelector('#toast').textContent,/no coinciden/);
+ }finally{for(const t of timers)clearTimeout(t);dom.window.close();delete globalThis.document;delete globalThis.HTMLElement;}
+});
