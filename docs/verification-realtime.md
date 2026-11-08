@@ -2,9 +2,9 @@
 
 Fecha: 8 de noviembre de 2026. Repositorio: MTUSGM/Proyecto2.
 
-**Estado: código preparado y validado localmente; migración y lanzamiento de producción pendientes.** La revisión automática rechazó aplicar la migración por sus cambios globales sobre recursos, tiempos y esquema. No se intentó ejecutar por otra vía. La aplicación de producción conserva su versión anterior.
+**Estado: migración aplicada con autorización expresa del usuario, PR #1 fusionada y aplicación desplegada en producción (READY).** Se verificaron ataques y contraataques reales mediante dos clientes independientes. La confirmación de correo y la medición completa servidor → pantalla siguen pendientes.
 
-## A. Cambios implementados en el código
+## A. Cambios implementados
 
 - Confirmación de contraseña en registro y cambio de contraseña. Validación de coincidencia y correo con dominio; mensajes de autenticación en español. Se conserva el flujo de enlace de confirmación de Supabase, ya activado en la configuración real. No se almacenan contraseñas fuera de Supabase Auth.
 - Un canal Realtime por sesión. Suscripciones privadas a imperio propio, notificaciones propias e informes de ataques propios; revisión pública de comandantes para las defensas y clasificación ya visibles en la galaxia. Limpieza al salir y resincronización al reconectar, recuperar conectividad o volver a la pestaña.
@@ -22,7 +22,7 @@ Fecha: 8 de noviembre de 2026. Repositorio: MTUSGM/Proyecto2.
 | src/main.js | Registro, sincronización híbrida, conservación de formularios, avisos, contraataque, reloj y producción visual |
 | src/style.css | Presentación adaptable de notificaciones |
 | package.json y package-lock.json | morphdom fijado; PGlite y jsdom para pruebas locales |
-| supabase/migrations/20261108163806_realtime_auth_speed.sql | Migración propuesta, aún no aplicada |
+| supabase/migrations/20261108163806_realtime_auth_speed.sql | Migración aplicada en Supabase |
 | tests/ui.test.mjs | Actualiza el entorno simulado para Realtime |
 | tests/sync.test.mjs | DOM real en jsdom: foco, valores, agrupación, reconexión, respaldo, cierre de sesión, confirmación de contraseña |
 | tests/migration.test.mjs | PostgreSQL local PGlite: migración de datos, RLS, avisos, tiempos, deduplicación y producción |
@@ -33,7 +33,7 @@ Fecha: 8 de noviembre de 2026. Repositorio: MTUSGM/Proyecto2.
 
 Inspección real: proyecto xpyuzrhxejitmiyobqqb, activo. Dos comandantes, dos imperios y dos batallas existentes; ningún escudo ni cooldown activo al inspeccionar. Las tres tablas existentes tienen RLS. Ninguna estaba incluida en supabase_realtime.
 
-Migración preparada:
+Migración aplicada:
 
 - Nueva tabla attack_notifications con id de batalla único, destinatario, atacante, nombre, planeta, resultado, fecha y read_at.
 - SELECT únicamente del destinatario; UPDATE únicamente de la columna read_at y de filas propias. Sin INSERT/DELETE desde clientes.
@@ -61,11 +61,18 @@ La configuración pública de Auth indica mailer_autoconfirm=false y registro ha
 
 Antes: el código utilizaba polling de 30 segundos y omitía consultas mientras había un campo activo, un borrador de flota, un modal o una acción en curso. Es evidencia del código, no una medición de latencia entre usuarios.
 
-Después: no se ha medido latencia real servidor → pantalla. La migración no está activa. La prueba local verifica que varios eventos se consolidan en una consulta y que la notificación aparece manteniendo el campo activo; usa eventos simulados y **no acredita** el objetivo de menos de tres segundos en producción.
+Después: dos clientes autenticados independientes y conectados al Realtime real ejecutaron un ataque y un contraataque:
+
+| Operación | Respuesta del ataque | Evento tras respuesta | Estado reconciliado tras respuesta |
+|---|---:|---:|---:|
+| prueba1 → prueba2 | 82 ms | 50 ms | 165 ms |
+| prueba2 → prueba1 | 157 ms | 39 ms | 172 ms |
+
+Son mediciones reales de clientes API, **no del renderizado en pantalla**. Los avisos estaban persistidos al consultar el estado y reenviar la misma petición fue rechazado en ambos casos. La prueba DOM local conserva el campo activo al recibir eventos simulados; no equivale a una prueba completa entre navegadores en producción.
 
 ## F. Tiempos
 
-| Mecánica | Antes | Preparado |
+| Mecánica | Antes | Ahora |
 |---|---:|---:|
 | Espera entre ataques | 60 s | 30 s |
 | Protección inicial y tras ataque | 10 min | 5 min |
@@ -87,20 +94,22 @@ El máximo de recursos acumulables por periodo offline se conserva: doble produc
 - Pruebas originales de combate orbital ejecutadas también dentro del entorno PostgreSQL local antes de la migración.
 - jsdom: un canal, polling de 120000 ms, eventos agrupados, mismo nodo de entrada y foco tras actualizar, valor en edición conservado, reconexión sin duplicados, recuperación de evento omitido por polling, contraataque abre planificador sin atacar y cierre de sesión detiene consultas.
 - API real: dos inicios de sesión y aislamiento de lectura correctos.
-- Intento de navegador Chromium local bloqueado por el entorno (`socket() failed: Operation not permitted`). No se declaró una verificación visual o de navegador completa.
+- Respaldo real sin suscripción Realtime en el destinatario: se cometió un tercer ataque y el intervalo de 120000 ms recuperó exactamente un aviso nuevo. La respuesta llegó a los 123538 ms desde el inicio del intervalo, incluyendo red/consulta. Sin duplicados.
+- RLS real de notificaciones: el atacante no pudo leer ni actualizar el aviso del destinatario (cero filas). El destinatario lo marcó leído y una sesión nueva conservó esa marca; no reapareció entre los avisos pendientes.
+- Navegador cloud: formulario de registro desplegado inspeccionado; incluye correo, contraseña y confirmación de contraseña. La sesión autenticada en este navegador requeriría el flujo seguro interactivo, por lo que no se declaró una prueba autenticada completa de UI.
+- Supabase tras migrar: cuatro tablas publicadas; dos imperios conservados; configuración del motor 30 s / 300 s / producción ×2 / límite offline 43200 s. Advisors sin nuevos problemas de seguridad; permanece el aviso de contraseñas filtradas ya documentado.
+- Vercel: consulta de errores de runtime del despliegue no devolvió registros. Es una aplicación estática; este resultado no sustituye la observación de errores del navegador.
 
 ## H. Despliegue
 
-Aplicación actual: https://proyecto2-nu-rust.vercel.app . Vercel informó READY para el último despliegue de producción dpl_28LTM668TeSCmh4xET3nTJhczKWF. Base inspeccionada del repositorio: a286c79ca8e7dd549d64d893079af655676fb2cf.
+- Aplicación: https://proyecto2-nu-rust.vercel.app/
+- PR fusionada: https://github.com/MTUSGM/Proyecto2/pull/1
+- Commit de código: ce9daa3386e5885e54786ef1a82e268d818c7c5c (incluye 4daf16d4ef526d3d493a9898e1caf61fe66fddaa).
+- Vercel: dpl_2bgk4PKEiDofVjAjk72B6LaAzrE9, producción, READY.
+- URL del despliegue: https://proyecto2-23wnvcz0h-mtusgm.vercel.app . El alias público anterior fue abierto y mostró el formulario actualizado.
 
-Los cambios se entregan en una rama de revisión, sin sustituir producción. El commit de esta rama es el que contiene este informe. No fusionar antes de aprobar/aplicar la migración, comprobar las suscripciones reales y pasar las pruebas multijugador. Cualquier preview generado automáticamente por Vercel aún usaría un backend sin migrar y no constituye una versión funcional validada de estas mejoras.
+## I. Límites y pendientes
 
-## I. Pendientes
-
-1. Aprobación de la migración concreta tras el rechazo de la revisión automática; aplicar una sola vez.
-2. Verificar publicación Realtime, políticas y advisors después de migrar.
-3. Probar ataques y contraataques reales entre las dos sesiones, incluyendo escritura, reconexión, recarga y caída de Realtime durante el intervalo de respaldo; medir latencia y comparar con el objetivo de 3 s.
-4. Verificar registro, recepción y confirmación con un buzón accesible, sin afirmar una entrega de correo que no se ha observado.
-5. Fusionar y desplegar en Vercel solo después de completar estas comprobaciones; verificar el despliegue final.
-
-No se completaron los criterios de aceptación en producción. No se borraron registros ni se reiniciaron partidas para las pruebas.
+1. Medir servidor → pantalla con dos navegadores autenticados y comprobar visualmente ataques durante escritura, contraataque, reconexión y recarga. Hay evidencia real API y evidencia DOM local, pero no se declara una prueba de navegador completa.
+2. Verificar registro, recepción y confirmación con un buzón accesible. El envío de confirmación está habilitado; no se ha observado la recepción de un correo nuevo.
+3. Las pruebas reales usaron las mecánicas normales de ataque de los dos usuarios de prueba: consumen recursos y pueden causar bajas y cambios de Elo. Se conservaron los informes, sin borrar registros ni reiniciar partidas.
